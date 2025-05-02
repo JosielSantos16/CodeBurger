@@ -1,96 +1,147 @@
 import * as Yup from 'yup';
-import User from '../models/User';
+
 import Product from '../models/Product';
+import Category from '../models/Category';
+import User from '../models/User';
+
+function getProducts() {
+  return Product.findAll({
+    include: [
+      {
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name']
+      }
+    ]
+  });
+}
 
 class ProductController {
-    async store(req, res) {
-        const schema = Yup.object().shape({
-            name: Yup.string().required(),
-            price: Yup.number().required(),
-            category_id: Yup.number().required(),
-            offer: Yup.boolean(),
-        });
+  async store(req, res) {
+    const schema = Yup.object().shape({
+      name: Yup.string().required(),
+      price: Yup.number().required(),
+      category_id: Yup.number().required(),
+      offer: Yup.boolean()
+    });
 
-        const { filename: path } = req.file;
-        const { name, price, category_id, offer } = req.body;
+    try {
+      const { admin: isUserAdmin } = await User.findByPk(req.userId);
 
-        try {
-            await schema.validateSync(req.body, { abortEarly: false });
-        } catch (err) {
-            return res.status(400).json({ error: err.errors });
-        }
+      if (!isUserAdmin) {
+        return res.status(401).json({ error: "User isn't admin" });
+      }
 
-        const user = await User.findByPk(req.userId);
+      const { name, price, category_id, offer } = req.body;
 
-        if (!user || !user.admin) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+      schema.validateSync(
+        { name, price, category_id, offer },
+        { abortEarly: false }
+      );
 
-        const product = await Product.create({
-            name,
-            price,
-            category_id,
-            path,
-            offer,
-        });
+      if (!req.file) {
+        return res.status(400).json({ error: ['file is a required field'] });
+      }
 
-        return res.json(product);
+      const product = await Product.create({
+        name,
+        price,
+        category_id,
+        offer,
+        path: req.file.filename
+      });
+
+      const updatedProducts = await getProducts();
+
+      return res.status(201).json({ product, updatedProducts });
+    } catch (err) {
+      return res.status(400).json({ error: err.errors });
     }
+  }
+  async update(req, res) {
+    const schema = Yup.object().shape({
+      name: Yup.string(),
+      price: Yup.number(),
+      category_id: Yup.number(),
+      offer: Yup.boolean()
+    });
 
-    async index(req, res) {
-        try {
-            const products = await Product.findAll();
-            return res.json(products);
-        } catch (err) {
-            return res.status(500).json({ error: 'Error fetching products' });
-        }
+    try {
+      const { admin: isUserAdmin } = await User.findByPk(req.userId);
+
+      if (!isUserAdmin) {
+        return res.status(401).json({ error: "User isn't admin" });
+      }
+
+      const { id } = req.params;
+
+      const product = await Product.findByPk(id);
+
+      if (!product) {
+        return res.status(400).json({ error: "Product doesn't exists" });
+      }
+
+      const { name, price, category_id, offer } = req.body;
+
+      schema.validateSync(
+        { name, price, category_id, offer },
+        { abortEarly: false }
+      );
+
+      await Product.update(
+        {
+          name,
+          price,
+          category_id,
+          path: req?.file?.filename,
+          offer
+        },
+        { where: { id } }
+      );
+
+      const updatedProducts = await getProducts();
+
+      return res.status(200).json({ product, updatedProducts });
+    } catch (err) {
+      return res.status(400).json({ error: err?.errors || err?.message });
     }
+  }
+  async index(_, res) {
+    try {
+      const products = await getProducts();
 
-    async update(req, res) {
-        const schema = Yup.object().shape({
-            name: Yup.string(),
-            price: Yup.number(),
-            category_id: Yup.number(),
-            offer: Yup.boolean(),
-        });
-
-        let path;
-
-        if (req.file) {
-            path = req.file.filename;
-        }
-
-        const { name, price, category_id, offer } = req.body;
-
-        try {
-            await schema.validateSync(req.body, { abortEarly: false });
-        } catch (err) {
-            return res.status(400).json({ error: err.errors });
-        }
-
-        const user = await User.findByPk(req.userId);
-
-        if (!user || !user.admin) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        const { id } = req.params;
-        const product = await Product.findByPk(id);
-
-        if (!product) {
-            return res.status(404).json({ error: 'Make sure your product ID is correct' });
-        }
-
-        await product.update({
-            name,
-            price,
-            category_id,
-            path,
-            offer,
-        });
-
-        return res.status(200).json(product);
+      return res.status(200).json(products);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: err?.message });
     }
+  }
+  async delete(req, res) {
+    try {
+      const { admin: isUserAdmin } = await User.findByPk(req.userId);
+
+      if (!isUserAdmin) {
+        return res.status(401).json({ error: "User isn't admin" });
+      }
+
+      const { id } = req.params;
+
+      const product = await Product.findByPk(id);
+
+      if (!product) {
+        return res.status(400).json({ error: "Product doesn't exists" });
+      }
+
+      await Product.destroy({ where: { id } });
+
+      const updatedProducts = await getProducts();
+
+      return res.status(200).json({ updatedProducts });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: err?.message });
+    }
+  }
 }
 
 export default new ProductController();

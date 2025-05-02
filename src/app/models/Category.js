@@ -22,4 +22,4 @@ class Category extends Model {
     }
 }
 
-export default Category
+export default Category;

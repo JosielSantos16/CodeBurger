@@ -1,45 +1,57 @@
-import * as Yup from 'yup'
-import User from '../models/User'
-import jwt from 'jsonwebtoken'
-import authCofig from '../../config/auth'
+import * as Yup from 'yup';
+import jwt from 'jsonwebtoken';
+import authConfig from '../../config/auth';
 
-class SessionController{
-    async store(req, res){
+import User from '../models/User';
 
-        const schema = Yup.object().shape({
-            email: Yup.string().email().required(),
-            password: Yup.string().required()
-        })
 
-        const userEmailOrPasswordIncorrect = () => {
-            return res
-            .status(400)
-            .json({ error: 'Seu Email ou sua senha estao erradas'})
-        }
+class SessionController {
+  async store(req, res) {
+    const schema = Yup.object().shape({
+      email: Yup.string().email().required(),
+      password: Yup.string().required()
+    });
 
-        if (!(await schema.isValid(req.body))) userEmailOrPasswordIncorrect()
-    
+    function badRequest() {
+      res.status(400).json({ error: 'wrong_email_or_password' });
+    }
 
-    const { email, password } = req.body;
+    try {
+      const isValidInputs = await schema.isValid(req.body);
 
-    const user = await User.findOne({
+      if (!isValidInputs) {
+        return badRequest();
+      }
+
+      const { email, password } = req.body;
+
+      const user = await User.findOne({
         where: { email }
-    })
+      });
 
-    if(!user) userEmailOrPasswordIncorrect()
+      if (!user) {
+        return badRequest();
+      }
 
-    if(!(await user.checkPassword(password))) userEmailOrPasswordIncorrect()
+      const isPasswordCorrect = await user.checkPassword(password);
 
-    return res.json({
+      if (!isPasswordCorrect) {
+        return badRequest();
+      }
+
+      return res.status(200).json({
         id: user.id,
-        email,
         name: user.name,
+        email,
         admin: user.admin,
-        token: jwt.sign({ id: user.id }, authCofig.secret, {
-            expiresIn: authCofig.expiresIn,
+        token: jwt.sign({ id: user.id, name: user.name }, authConfig.secret, {
+          expiresIn: authConfig.expiresIn
         })
-    })
-}
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err?.message });
+    }
+  }
 }
 
 export default new SessionController();
