@@ -1,7 +1,9 @@
+// src/app.js
 import express from 'express';
 import cors from 'cors';
-import './database';
+import './database/index.js';
 import { resolve } from 'path';
+// Ajuste: importe diretamente o arquivo routes.js com extensão
 import routes from './routes.js';
 
 class App {
