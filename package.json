@@ -1,11 +1,13 @@
+
 {
+  "type": "module",
   "name": "codeburger",
   "version": "1.0.0",
   "description": "",
   "main": "src/database/server.js",
   "scripts": {
     "start": "node src/database/server.js",
-    "dev":   "nodemon src/database/server.js"
+    "dev": "nodemon src/database/server.js"
   },
   "keywords": [],
   "author": "",
