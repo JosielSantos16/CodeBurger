@@ -1,10 +1,11 @@
 {
   "name": "codeburger",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "src/server.js",
   "scripts": {
-  "start": "node src/server.js",
+  "start": "node --no-warnings=ExperimentalWarning src/server.js",
   "dev": "nodemon",
   "migrate": "yarn sequelize-cli db:migrate" 
 },
